@@ -1,4 +1,12 @@
-use crate::mmu::Mmu;
+use crate::{
+    mmu::Mmu,
+    keyboard::Keyboard,
+};
+
+pub enum ExecutionStatus {
+    Continue,
+    WaitForKey(u8),
+}
 
 pub struct Cpu {
     /// The program counter
@@ -23,7 +31,8 @@ pub struct Cpu {
 impl Cpu {
     pub fn new() -> Cpu {
         Cpu {
-            pc: 200,
+            // CHIP-8 programs start at 0x200
+            pc: 0x200,
             sp: 0,
             stack: [0; 16],
             v: [0; 16],
@@ -33,7 +42,21 @@ impl Cpu {
         }
     }
 
-    pub fn step(&mut self, mmu: &mut Mmu) {
+    pub fn decrement_timers(&mut self) {
+        if self.dt > 0 {
+            self.dt -= 1;
+        }
+
+        if self.st > 0 {
+            self.st -= 1;
+        }
+    }
+
+    pub fn provide_key(&mut self, x: u8, key: u8) {
+        self.v[x as usize] = key;
+    }
+
+    pub fn step(&mut self, mmu: &mut Mmu, keyboard: &Keyboard) -> ExecutionStatus {
         let instruction = mmu.read_word(self.pc);
         self.pc += 2;
 
@@ -48,9 +71,8 @@ impl Cpu {
         let c = (instruction & 0x00F0) >> 4;
         let d = instruction & 0x000F;
 
-
         match (a, b, c, d) {
-            (0x0, 0x0, 0xE, 0x0) => self.cls(),
+            (0x0, 0x0, 0xE, 0x0) => self.cls(mmu),
             (0x0, 0x0, 0xE, 0xE) => self.ret(),
             (0x1,   _,   _,   _) => self.jmp(nnn),
             (0x2,   _,   _,   _) => self.call(nnn),
@@ -72,24 +94,25 @@ impl Cpu {
             (0xA,   _,   _,   _) => self.addr(nnn),
             (0xB,   _,   _,   _) => self.jmp_v0(nnn),
             (0xC,   _,   _,   _) => self.rnd(x, kk),
-            (0xD,   _,   _,   _) => self.drw(x, y, n),
-            (0xE,   _, 0x9, 0xE) => self.skp(x),
-            (0xE,   _, 0xA, 0x1) => self.skpn(x),
+            (0xD,   _,   _,   _) => self.drw(mmu, x, y, n),
+            (0xE,   _, 0x9, 0xE) => self.skp(keyboard, x),
+            (0xE,   _, 0xA, 0x1) => self.skpn(keyboard, x),
             (0xF,   _, 0x0, 0x7) => self.ld_dt(x),
-            (0xF,   _, 0x0, 0xA) => self.ld_key(x),
+            (0xF,   _, 0x0, 0xA) => return ExecutionStatus::WaitForKey(x),
             (0xF,   _, 0x1, 0x5) => self.set_dt(x),
             (0xF,   _, 0x1, 0x8) => self.set_st(x),
             (0xF,   _, 0x1, 0xE) => self.add_addr(x),
-            (0xF,   _, 0x2, 0x9) => self.ld_sprite(x),
+            (0xF,   _, 0x2, 0x9) => self.ld_sprite(mmu, x),
             (0xF,   _, 0x3, 0x3) => self.ld_bcd(mmu, x),
             (0xF,   _, 0x5, 0x5) => self.store_regs(mmu, x),
             (0xF,   _, 0x6, 0x5) => self.ld_regs(mmu, x),
             _ => println!("Unexpected instruction {:x?}", instruction),
         }
+        ExecutionStatus::Continue
     }
 
-    fn cls(&mut self) {
-        // TODO: Clear screen
+    fn cls(&mut self, mmu: &mut Mmu) {
+        mmu.clear_display();
     }
 
     fn ret(&mut self) {
@@ -154,6 +177,8 @@ impl Cpu {
         let y_val = self.v[y as usize];
         if x_val as u16 + y_val as u16 > 0xFF {
             self.v[0xF] = 0x01;
+        } else {
+            self.v[0xF] = 0x00;
         }
         self.v[x as usize] = x_val.wrapping_add(y_val);
     }
@@ -163,6 +188,8 @@ impl Cpu {
         let y_val = self.v[y as usize];
         if x_val > y_val {
             self.v[0xF] = 0x01;
+        } else {
+            self.v[0xF] = 0x00;
         }
         self.v[x as usize] = x_val.wrapping_sub(y_val);
     }
@@ -171,6 +198,8 @@ impl Cpu {
         let x_val = self.v[x as usize];
         if (x_val & 0x01) == 0x01 {
             self.v[0xF] = 0x01;
+        } else {
+            self.v[0xF] = 0x00;
         }
         self.v[x as usize] = x >> 1;
     }
@@ -180,6 +209,8 @@ impl Cpu {
         let y_val = self.v[y as usize];
         if y_val > x_val {
             self.v[0xF] = 0x01;
+        } else {
+            self.v[0xF] = 0x00;
         }
         self.v[x as usize] = y_val.wrapping_sub(x_val);
     }
@@ -188,6 +219,8 @@ impl Cpu {
         let x_val = self.v[x as usize];
         if (x_val & 0x80) == 0x80 {
             self.v[0xF] = 0x01;
+        } else {
+            self.v[0xF] = 0x00;
         }
         self.v[x as usize] = x << 1;
     }
@@ -207,29 +240,45 @@ impl Cpu {
     }
 
     fn rnd(&mut self, x: u8, kk: u8) {
-        // TODO: Generate random number
-        let num = 4;
+        let num: u8 = rand::random();
         self.v[x as usize] = num & kk;
     }
 
-    fn drw(&mut self, x: u8, y:u8, n: u8) {
-        // TODO: Display something
+    fn drw(&mut self, mmu: &mut Mmu, x: u8, y:u8, n: u8) {
+        let x_val = self.v[x as usize];
+        let y_val = self.v[y as usize];
+        let mut collision = false;
+        for i in 0..n {
+            let byte = mmu.read_byte(self.i as u16 + i as u16);
+            for bit in 0..8 {
+                if byte & (0x80 >> bit) != 0 {
+                    if mmu.xor_pixel(x_val + bit, y_val + i) {
+                        collision = true;
+                    }
+                }
+            }
+        }
+        if collision {
+            self.v[0xF] = 0x01;
+        } else {
+            self.v[0xF] = 0x00;
+        }
     }
 
-    fn skp(&mut self, x: u8) {
-        // TODO: Check input
+    fn skp(&mut self, keyboard: &Keyboard, x: u8) {
+        if keyboard.keys[x as usize] {
+            self.pc += 2;
+        }
     }
 
-    fn skpn(&mut self, x: u8) {
-        // TODO: Check input
+    fn skpn(&mut self, keyboard: &Keyboard, x: u8) {
+        if !keyboard.keys[x as usize] {
+            self.pc += 2;
+        }
     }
 
     fn ld_dt(&mut self, x: u8) {
         self.v[x as usize] = self.dt;
-    }
-
-    fn ld_key(&mut self, x: u8) {
-        // TODO: Check input
     }
 
     fn set_dt(&mut self, x: u8) {
@@ -244,8 +293,8 @@ impl Cpu {
         self.i = self.i.wrapping_add(x as u16);
     }
 
-    fn ld_sprite(&mut self, x: u8) {
-        // TODO: Load adress of sprite x into i
+    fn ld_sprite(&mut self, mmu: &Mmu, x: u8) {
+        self.i = mmu.get_glyph_address(self.v[x as usize]);
     }
 
     fn ld_bcd(&mut self, mmu: &mut Mmu, x: u8) {

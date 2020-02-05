@@ -1,3 +1,9 @@
+mod chip;
+mod cpu;
+mod mmu;
+
+use chip::Chip;
+
 fn main() {
-    println!("Hello, world!");
+    let mut chip = Chip::new();
 }

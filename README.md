@@ -1,8 +1,6 @@
 # RIP-8
 
-CHIP-8 Interpretter written in Rust
-
-Nearly working, but not quite yet
+CHIP-8 Interpreter written in Rust.
 
 # Usage
 ```

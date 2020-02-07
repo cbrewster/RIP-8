@@ -201,7 +201,7 @@ impl Cpu {
         } else {
             self.v[0xF] = 0x00;
         }
-        self.v[x as usize] /= 2;
+        self.v[x as usize] >>= 2;
     }
 
     fn subn(&mut self, x: u8, y: u8) {
@@ -222,7 +222,7 @@ impl Cpu {
         } else {
             self.v[0xF] = 0x00;
         }
-        self.v[x as usize] *= 2;
+        self.v[x as usize] <<= 1;
     }
 
     fn sne_xy(&mut self, x: u8, y: u8) {

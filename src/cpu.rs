@@ -60,16 +60,16 @@ impl Cpu {
         let instruction = mmu.read_word(self.pc);
         self.pc += 2;
 
-        let nnn = instruction & 0x0FFF;
-        let n   = (instruction & 0x000F) as u8;
-        let x   = ((instruction & 0x0F00) >> 8) as u8;
-        let y   = ((instruction & 0x00F0) >> 4) as u8;
-        let kk  = (instruction & 0x00FF) as u8;
+        let a = ((instruction & 0xF000) >> 12) as u8;
+        let b = ((instruction & 0x0F00) >> 8) as u8;
+        let c = ((instruction & 0x00F0) >> 4) as u8;
+        let d = (instruction & 0x000F) as u8;
 
-        let a = (instruction & 0xF000) >> 12;
-        let b = (instruction & 0x0F00) >> 8;
-        let c = (instruction & 0x00F0) >> 4;
-        let d = instruction & 0x000F;
+        let nnn = instruction & 0x0FFF;
+        let n   = d;
+        let x   = b;
+        let y   = c;
+        let kk  = (instruction & 0x00FF) as u8;
 
         match (a, b, c, d) {
             (0x0, 0x0, 0xE, 0x0) => self.cls(mmu),
@@ -300,9 +300,10 @@ impl Cpu {
     }
 
     fn ld_bcd(&mut self, mmu: &mut Mmu, x: u8) {
-        let hundreds = x / 100;
-        let tenths = (x % 100) / 10;
-        let ones = x % 10;
+        let x_val = self.v[x as usize];
+        let hundreds = x_val / 100;
+        let tenths = (x_val % 100) / 10;
+        let ones = x_val % 10;
 
         mmu.write_byte(self.i,     hundreds);
         mmu.write_byte(self.i + 1, tenths);

@@ -266,13 +266,15 @@ impl Cpu {
     }
 
     fn skp(&mut self, keyboard: &Keyboard, x: u8) {
-        if keyboard.keys[x as usize] {
+        let x_val = self.v[x as usize];
+        if keyboard.key_pressed(x_val) {
             self.pc += 2;
         }
     }
 
     fn skpn(&mut self, keyboard: &Keyboard, x: u8) {
-        if !keyboard.keys[x as usize] {
+        let x_val = self.v[x as usize];
+        if !keyboard.key_pressed(x_val) {
             self.pc += 2;
         }
     }

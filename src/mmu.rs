@@ -68,7 +68,6 @@ impl Mmu {
     }
 
     pub fn get_glyph_address(&self, glyph: u8) -> u16 {
-        println!("Glyph {}", glyph);
         if glyph > 0xF {
             panic!("Tried to get invalid glyph");
         }

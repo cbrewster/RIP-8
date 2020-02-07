@@ -34,6 +34,10 @@ impl Keyboard {
         self.keys[0xF] = window.is_key_down(Key::V);
     }
 
+    pub fn key_pressed(&self, key: u8) -> bool {
+        self.keys[key as usize]
+    }
+
     pub fn first_pressed_key(&self) -> Option<u8> {
         self.keys.iter().position(|pressed| *pressed).map(|code| code as u8)
     }

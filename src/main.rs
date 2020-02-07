@@ -13,6 +13,12 @@ const WINDOW_HEIGHT: usize = 256;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
+
+    if args.len() != 2 {
+        println!("USAGE: rip8 <path/to/rom>");
+        return;
+    }
+
     let rom = &args[1];
 
     let mut chip = Chip::new();

@@ -201,7 +201,7 @@ impl Cpu {
         } else {
             self.v[0xF] = 0x00;
         }
-        self.v[x as usize] >>= 2;
+        self.v[x as usize] >>= 1;
     }
 
     fn subn(&mut self, x: u8, y: u8) {
@@ -301,6 +301,7 @@ impl Cpu {
 
     fn ld_bcd(&mut self, mmu: &mut Mmu, x: u8) {
         let x_val = self.v[x as usize];
+
         let hundreds = x_val / 100;
         let tenths = (x_val % 100) / 10;
         let ones = x_val % 10;

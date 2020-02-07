@@ -91,7 +91,7 @@ impl Cpu {
             (0x8,   _,   _, 0x7) => self.subn(x, y),
             (0x8,   _,   _, 0xE) => self.shl(x),
             (0x9,   _,   _, 0x0) => self.sne_xy(x, y),
-            (0xA,   _,   _,   _) => self.addr(nnn),
+            (0xA,   _,   _,   _) => self.ldi(nnn),
             (0xB,   _,   _,   _) => self.jmp_v0(nnn),
             (0xC,   _,   _,   _) => self.rnd(x, kk),
             (0xD,   _,   _,   _) => self.drw(mmu, x, y, n),
@@ -201,7 +201,7 @@ impl Cpu {
         } else {
             self.v[0xF] = 0x00;
         }
-        self.v[x as usize] = x >> 1;
+        self.v[x as usize] /= 2;
     }
 
     fn subn(&mut self, x: u8, y: u8) {
@@ -222,7 +222,7 @@ impl Cpu {
         } else {
             self.v[0xF] = 0x00;
         }
-        self.v[x as usize] = x << 1;
+        self.v[x as usize] *= 2;
     }
 
     fn sne_xy(&mut self, x: u8, y: u8) {
@@ -231,12 +231,12 @@ impl Cpu {
         }
     }
 
-    fn addr(&mut self, nnn: u16) {
+    fn ldi(&mut self, nnn: u16) {
         self.i = nnn;
     }
 
     fn jmp_v0(&mut self, nnn: u16) {
-        self.pc = self.v[0x0] as u16 + nnn;
+        self.pc = nnn + self.v[0x0] as u16;
     }
 
     fn rnd(&mut self, x: u8, kk: u8) {
@@ -290,7 +290,7 @@ impl Cpu {
     }
 
     fn add_addr(&mut self, x: u8) {
-        self.i = self.i.wrapping_add(x as u16);
+        self.i = self.i.wrapping_add(self.v[x as usize] as u16);
     }
 
     fn ld_sprite(&mut self, mmu: &Mmu, x: u8) {
